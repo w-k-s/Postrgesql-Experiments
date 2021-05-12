@@ -1,1 +1,0 @@
-/Users/waqqassheikh/Developer/java/psqlexperiment/build/classes/kotlin/main/User$$serializer.class:/Users/waqqassheikh/Developer/java/psqlexperiment/build/classes/kotlin/main/User$Companion.class:/Users/waqqassheikh/Developer/java/psqlexperiment/build/classes/kotlin/main/User.class:/Users/waqqassheikh/Developer/java/psqlexperiment/build/classes/kotlin/main/UserProcessor.class

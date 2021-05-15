@@ -49,15 +49,11 @@ public class IntegrationTest2 {
 
     @AfterEach
     public void afterEach() {
-        Jdbi.create(dataSource).withHandle(handle -> {
-            int rows = handle.execute("DROP TABLE source");
-            rows += handle.execute("DROP TABLE destination");
-            return rows;
-        });
+        Jdbi.create(dataSource).withHandle(handle -> handle.execute("DELETE FROM destination"));
     }
 
     @Test
-    public void testParallelProcessorsSplitWorkUsingLockedRows() throws ExecutionException, InterruptedException {
+    public void GIVEN_2ProcessorsAreProcessingUsers_WHEN_parallelStrategyIsUsed_THEN_workIsDividedEvenlyBetweenTwoProcessors_AND_rowsCanBeUpdatedAfterLocked() throws ExecutionException, InterruptedException {
         CompletableFuture.allOf(
                 new UserProcessor("processor-1", dataSource).process(10),
                 new UserProcessor("processor-2", dataSource).process(10)
@@ -68,6 +64,10 @@ public class IntegrationTest2 {
 
         assertThat(processor1Work).isEqualTo(10);
         assertThat(processor2Work).isEqualTo(10);
+
+        var updatedRows = Jdbi.create(dataSource)
+                .withHandle(handle -> handle.execute("UPDATE source SET is_updated = TRUE"));
+        assertThat(updatedRows).isEqualTo(20);
     }
 
     private int getWorkDoneByProcessorNamed(String name) {

@@ -2,7 +2,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.JdbcDatabaseContainer;
@@ -31,7 +31,7 @@ public class IntegrationTest2 {
             .withPassword("sa")
             .withInitScript("init.sql");
 
-    @BeforeAll
+    @BeforeEach
     public void setUp() {
         postgreSQLContainer
                 .withExposedPorts(5433)
@@ -55,18 +55,40 @@ public class IntegrationTest2 {
     @Test
     public void GIVEN_2ProcessorsAreProcessingUsers_WHEN_parallelStrategyIsUsed_THEN_workIsDividedEvenlyBetweenTwoProcessors_AND_rowsCanBeUpdatedAfterLocked() throws ExecutionException, InterruptedException {
         CompletableFuture.allOf(
-                new UserProcessor("processor-1", dataSource).process(10),
-                new UserProcessor("processor-2", dataSource).process(10)
+                new UserProcessor("processor-1", dataSource).processInParallel(10),
+                new UserProcessor("processor-2", dataSource).processInParallel(10)
+        ).get();
+
+        assertThat(getWorkDoneByProcessorNamed("processor-1")).isEqualTo(10);
+        assertThat(getWorkDoneByProcessorNamed("processor-2")).isEqualTo(10);
+
+        var updatedRows = Jdbi.create(dataSource)
+                .withHandle(handle -> handle.execute("UPDATE source SET is_processed = FALSE"));
+        assertThat(updatedRows).isEqualTo(20);
+    }
+
+    @Test
+    public void GIVEN_2ProcessorsAreProcessingUsers_WHEN_masterNodeStrategyIsUsed_THEN_oneProcessorDoesAllTheWork_AND_rowsCanBeUpdatedAfterLocked() throws ExecutionException, InterruptedException {
+        CompletableFuture.allOf(
+                new UserProcessor("processor-1", dataSource).processWithMasterNode(),
+                new UserProcessor("processor-2", dataSource).processWithMasterNode()
         ).get();
 
         var processor1Work = getWorkDoneByProcessorNamed("processor-1");
         var processor2Work = getWorkDoneByProcessorNamed("processor-2");
 
-        assertThat(processor1Work).isEqualTo(10);
-        assertThat(processor2Work).isEqualTo(10);
+        assertThat(processor1Work).isNotEqualTo(processor2Work);
+        assertThat(processor1Work).satisfiesAnyOf(
+                count -> assertThat(count).isEqualTo(0),
+                count -> assertThat(count).isEqualTo(20)
+        );
+        assertThat(processor2Work).satisfiesAnyOf(
+                count -> assertThat(count).isEqualTo(0),
+                count -> assertThat(count).isEqualTo(20)
+        );
 
         var updatedRows = Jdbi.create(dataSource)
-                .withHandle(handle -> handle.execute("UPDATE source SET is_updated = TRUE"));
+                .withHandle(handle -> handle.execute("UPDATE source SET is_processed = FALSE"));
         assertThat(updatedRows).isEqualTo(20);
     }
 

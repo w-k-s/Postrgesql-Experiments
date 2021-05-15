@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS source(
     id serial PRIMARY KEY,
 	user_json VARCHAR ( 1000 ) NOT NULL,
-	is_updated BOOL NOT NULL DEFAULT FALSE
+	is_processed BOOL NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS destination(

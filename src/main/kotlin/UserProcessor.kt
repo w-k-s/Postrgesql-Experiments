@@ -10,22 +10,44 @@ class UserProcessor(
 ) {
     private val source = Jdbi.create(source)
 
-    fun process(batchSize: Int) : CompletableFuture<Void>{
+    fun processInParallel(batchSize: Int): CompletableFuture<Void> {
         return CompletableFuture.runAsync {
-            source.inTransaction<Unit,Exception> { handle ->
-                handle.select("SELECT user_json FROM source ORDER BY id FOR UPDATE SKIP LOCKED LIMIT ?", batchSize)
-                    .mapTo(String::class.java)
+            source.inTransaction<Unit, Exception> { handle ->
+                handle.select("SELECT id, user_json FROM source WHERE is_processed = FALSE ORDER BY id FOR UPDATE SKIP LOCKED LIMIT ?", batchSize)
+                    .mapToMap()
                     .list()
-                    .map { Json.decodeFromString<User>(it) }
-                    .forEach {
-                        source.withHandle<Int, Exception> { handle ->
-                            handle.execute(
-                                "INSERT INTO destination(first_name, last_name, processed_by) VALUES (?, ?, ?)",
-                                it.firstName,
-                                it.lastName,
-                                name
-                            )
-                        }
+                    .forEach { map ->
+                        val id = map["id"] as Int
+                        val user = Json.decodeFromString<User>(map["user_json"] as String)
+
+                        handle.execute(
+                            "INSERT INTO destination(first_name, last_name, processed_by) VALUES (?, ?, ?)",
+                            user.firstName,
+                            user.lastName,
+                            name
+                        )
+                        handle.execute("UPDATE source SET is_processed = TRUE WHERE id = ?", id)
+                    }
+            }
+        }
+    }
+
+    fun processWithMasterNode(): CompletableFuture<Void> {
+        return CompletableFuture.runAsync {
+            source.inTransaction<Unit, Exception> { handle ->
+                handle.select("SELECT id,user_json FROM source WHERE is_processed = FALSE ORDER BY id FOR UPDATE")
+                    .mapToMap()
+                    .forEach { map ->
+                        val id = map["id"] as Int
+                        val user = Json.decodeFromString<User>(map["user_json"] as String)
+
+                        handle.execute(
+                            "INSERT INTO destination(first_name, last_name, processed_by) VALUES (?, ?, ?)",
+                            user.firstName,
+                            user.lastName,
+                            name
+                        )
+                        handle.execute("UPDATE source SET is_processed = TRUE WHERE id = ?", id)
                     }
             }
         }

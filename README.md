@@ -29,7 +29,7 @@ COMMIT
 
 This is achieved using the following queries:
 
-```
+```sql
 BEGIN TRANSACTION
 SELECT user_json FROM source WHERE is_processed = FALSE ORDER BY id FOR UPDATE SKIP LOCKED LIMIT ?
 COMMIT
@@ -40,13 +40,13 @@ COMMIT
     
     Each part of this query has a role:
     
-    `ORDER BY` is important because it ensures all threads have view of the workload rows in a consistent order. 
+    `ORDER BY` is important because it ensures all threads view the workload rows in the same order. 
   
-    `FOR UPDATE .. LIMIT ` locks a limited amount of the selected rows. The first thread will work on these rows.
+    `FOR UPDATE .. LIMIT ..` locks a certain number of the selected rows. The first thread will work on these rows.
 
-    `SKIP LOCKED` instructs the database to ignore locked rows. This allows a second thread to pick up rows that aren't being worked on by another thread.
+    `SKIP LOCKED` instructs the database to ignore locked rows. This allows a second thread to pick up rows that aren't being worked on by the first thread.
 
-    `WHERE is_processed = FALSE` is a second line of defense to make sure a second thread does not pick up work that was already done.
+    `WHERE is_processed = FALSE` is a second line of defense to make sure the second thread does not pick up work that was already done.
 
 - `COMMIT` commits the transaction and releases the lock.
 

@@ -53,7 +53,7 @@ public class IntegrationTest2 {
     }
 
     @Test
-    public void GIVEN_2ProcessorsAreProcessingUsers_WHEN_parallelStrategyIsUsed_THEN_workIsDividedEvenlyBetweenTwoProcessors_AND_rowsCanBeUpdatedAfterLocked() throws ExecutionException, InterruptedException {
+    public void GIVEN_2ProcessorsAreProcessingUsers_WHEN_parallelStrategyIsUsed_THEN_workIsDividedEvenlyBetweenTwoProcessors_AND_rowsCanBeUpdatedAfterCommit() throws ExecutionException, InterruptedException {
         CompletableFuture.allOf(
                 new UserProcessor("processor-1", dataSource).processInParallel(10),
                 new UserProcessor("processor-2", dataSource).processInParallel(10)
@@ -68,7 +68,7 @@ public class IntegrationTest2 {
     }
 
     @Test
-    public void GIVEN_2ProcessorsAreProcessingUsers_WHEN_masterNodeStrategyIsUsed_THEN_oneProcessorDoesAllTheWork_AND_rowsCanBeUpdatedAfterLocked() throws ExecutionException, InterruptedException {
+    public void GIVEN_2ProcessorsAreProcessingUsers_WHEN_masterNodeStrategyIsUsed_THEN_oneProcessorDoesAllTheWork_AND_rowsCanBeUpdatedAfterCommit() throws ExecutionException, InterruptedException {
         CompletableFuture.allOf(
                 new UserProcessor("processor-1", dataSource).processWithMasterNode(),
                 new UserProcessor("processor-2", dataSource).processWithMasterNode()
